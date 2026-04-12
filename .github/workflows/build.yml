@@ -1,0 +1,54 @@
+name: Build VOID Plugin
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install CMake
+        run: brew install cmake ninja
+
+      - name: Cache JUCE
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-7.0.12-${{ runner.os }}
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          # VST3
+          find build -name "*.vst3" -type d | head -1 | xargs -I{} cp -r {} artifacts/
+          # AU
+          find build -name "*.component" -type d | head -1 | xargs -I{} cp -r {} artifacts/
+          ls -la artifacts/
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: VOID-VST3-macOS
+          path: artifacts/*.vst3
+
+      - name: Upload AU
+        uses: actions/upload-artifact@v4
+        with:
+          name: VOID-AU-macOS
+          path: artifacts/*.component
