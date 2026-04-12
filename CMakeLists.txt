@@ -45,6 +45,8 @@ target_sources(VOID PRIVATE
   Source/PluginEditor.cpp
 )
 
+juce_generate_juce_header(VOID)
+
 target_compile_definitions(VOID PUBLIC
   JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
