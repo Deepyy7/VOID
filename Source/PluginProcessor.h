@@ -30,17 +30,17 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    std::atomic<int>  currentAlgo   { 1 };
-    std::atomic<bool> frozen        { false };
-    std::atomic<bool> bypassed      { false };
+    std::atomic<int>  currentAlgo { 1 };
+    std::atomic<bool> frozen      { false };
+    std::atomic<bool> bypassed    { false };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    juce::dsp::Reverb reverb;
-    juce::dsp::ProcessSpec spec;
+    juce::dsp::Reverb       reverb;
+    juce::dsp::ProcessSpec  spec;
 
     void updateReverbParams();
 
-    JUCE_DECLARE_NON_COPYABLEWITH_LEAK_DETECTOR (VOIDProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VOIDProcessor)
 };
