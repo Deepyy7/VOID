@@ -38,19 +38,13 @@ VOIDEditor::VOIDEditor (VOIDProcessor& p)
     juce::Timer::callAfterDelay (1200, [this] { syncAllParamsToJS(); });
 }
 
-VOIDEditor::~VOIDEditor()
-{
-    htmlTempFile.deleteFile();
-}
+VOIDEditor::~VOIDEditor() { htmlTempFile.deleteFile(); }
 
-void VOIDEditor::resized()
-{
-    webView.setBounds (getLocalBounds());
-}
+void VOIDEditor::resized() { webView.setBounds (getLocalBounds()); }
 
 void VOIDEditor::sendToJS (const juce::String& js)
 {
-    webView.evaluateJavascript (js, [] (juce::WebBrowserComponent::EvaluationResult) {});
+    webView.goToURL ("jscript:" + js);
 }
 
 void VOIDEditor::syncAllParamsToJS()
@@ -81,23 +75,16 @@ bool VOIDEditor::handleURL (const juce::String& url)
         return url.fromFirstOccurrenceOf (key, false, false)
                   .upToFirstOccurrenceOf ("&", false, false);
     };
-
     if (url.startsWith ("juce://param"))
     {
-        const auto id  = after ("id=");
-        const auto val = after ("value=").getFloatValue();
-        if (auto* param = processor.apvts.getParameter (id))
-            param->setValueNotifyingHost (val);
+        if (auto* p = processor.apvts.getParameter (after ("id=")))
+            p->setValueNotifyingHost (after ("value=").getFloatValue());
     }
     else if (url.startsWith ("juce://bypass"))
         processor.bypassed.store (after ("v=").getIntValue() != 0);
     else if (url.startsWith ("juce://algo"))
-    {
-        const int idx = ALGO_NAMES.indexOf (after ("v="));
-        if (idx >= 0) processor.currentAlgo.store (idx);
-    }
+    { const int idx=ALGO_NAMES.indexOf(after("v=")); if(idx>=0)processor.currentAlgo.store(idx); }
     else if (url.startsWith ("juce://frozen"))
         processor.frozen.store (after ("v=").getIntValue() != 0);
-
     return false;
 }
