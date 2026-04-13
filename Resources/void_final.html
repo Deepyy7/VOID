@@ -1375,6 +1375,38 @@ function _ensureWorker() {
       abuf.copyToChannel(new Float32Array(ev.data.R), 1);
       rev.buffer = abuf;
     } catch(err) { console.warn('[VOID IR apply]', err); }
+    // ── IR Bridge: send IR to C++ backend ──
+    try {
+      const fullSR  = actx.sampleRate;
+      const fullLen = ev.data.L.byteLength / 4;
+      const fullL   = new Float32Array(ev.data.L);
+      const fullR   = new Float32Array(ev.data.R);
+      // Downsample to 8000 Hz to keep URL size manageable (~200KB base64 max)
+      const TARGET_SR = 8000;
+      const ratio  = fullSR / TARGET_SR;
+      const outLen = Math.max(1, Math.floor(fullLen / ratio));
+      const dsL = new Float32Array(outLen);
+      const dsR = new Float32Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        const s = Math.min(Math.floor(i * ratio), fullLen - 1);
+        dsL[i] = fullL[s];
+        dsR[i] = fullR[s];
+      }
+      // Pack as int16: L channel first, then R channel
+      const int16 = new Int16Array(outLen * 2);
+      for (let i = 0; i < outLen; i++) {
+        int16[i]        = Math.max(-32767, Math.min(32767, Math.round(dsL[i] * 32767)));
+        int16[i+outLen] = Math.max(-32767, Math.min(32767, Math.round(dsR[i] * 32767)));
+      }
+      // Base64 encode in chunks to avoid call-stack overflow
+      const bytes = new Uint8Array(int16.buffer);
+      let b64 = '';
+      const BCHUNK = 3072;
+      for (let i = 0; i < bytes.length; i += BCHUNK) {
+        b64 += btoa(String.fromCharCode.apply(null, bytes.subarray(i, i + BCHUNK)));
+      }
+      _jb.src = `juce://ir?sr=${TARGET_SR}&len=${outLen}&data=${encodeURIComponent(b64)}`;
+    } catch(e) { console.warn('[VOID IR bridge]', e); }
   };
   _irWorker.onerror = function(ev) {
     _irPending = false;
