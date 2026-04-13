@@ -33,7 +33,7 @@ VOIDEditor::VOIDEditor (VOIDProcessor& p)
     htmlTempFile.replaceWithData (BinaryData::void_final_html,
                                   (size_t) BinaryData::void_final_htmlSize);
 
-    webView.goToURL (juce::URL (htmlTempFile).toString (false));
+    webView.goToURL ("file://" + htmlTempFile.getFullPathName());
 
     juce::Timer::callAfterDelay (1200, [this] { syncAllParamsToJS(); });
 }
