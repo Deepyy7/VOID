@@ -2,7 +2,6 @@
 
 static const juce::StringArray ALGO_NAMES { "plate", "hall", "superhall", "infinite" };
 
-// JS internal IDs → APVTS parameter IDs
 static const std::vector<std::pair<juce::String,juce::String>> PARAM_MAP {
     { "pdly", "predelay"  }, { "diff", "diffusion" }, { "size", "size"      },
     { "mdp",  "moddepth"  }, { "mdr",  "modrate"   }, { "atk",  "attack"    },
@@ -11,18 +10,16 @@ static const std::vector<std::pair<juce::String,juce::String>> PARAM_MAP {
     { "dcy",  "decay"     },
 };
 
-// ── WebView: intercept juce:// URLs ──────────────────────────
 bool VOIDEditor::VoidWebView::pageAboutToLoad (const juce::String& url)
 {
     if (url.startsWith ("juce://"))
     {
         owner.handleURL (url);
-        return false; // block actual navigation
+        return false;
     }
     return true;
 }
 
-// ── Constructor ───────────────────────────────────────────────
 VOIDEditor::VOIDEditor (VOIDProcessor& p)
     : AudioProcessorEditor (p), processor (p)
 {
@@ -30,16 +27,14 @@ VOIDEditor::VOIDEditor (VOIDProcessor& p)
     setSize (1060, 600);
     setResizable (false, false);
 
-    // Write HTML to a temp file and load it
     htmlTempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                       .getChildFile ("VOID_plugin_ui_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".html");
+                       .getChildFile ("VOID_ui_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".html");
 
     htmlTempFile.replaceWithData (BinaryData::void_final_html,
                                   (size_t) BinaryData::void_final_htmlSize);
 
-    webView.goToURL (htmlTempFile.getURL().toString (false));
+    webView.goToURL (juce::URL (htmlTempFile).toString (false));
 
-    // Sync params to JS after page loads
     juce::Timer::callAfterDelay (1200, [this] { syncAllParamsToJS(); });
 }
 
@@ -48,28 +43,24 @@ VOIDEditor::~VOIDEditor()
     htmlTempFile.deleteFile();
 }
 
-// ── Layout ────────────────────────────────────────────────────
 void VOIDEditor::resized()
 {
     webView.setBounds (getLocalBounds());
 }
 
-// ── Send JS string to page ────────────────────────────────────
 void VOIDEditor::sendToJS (const juce::String& js)
 {
-    webView.evaluateJavascript (js);
+    webView.evaluateJavascript (js, [] (juce::WebBrowserComponent::EvaluationResult) {});
 }
 
-// ── Sync all param values to JS on load ──────────────────────
 void VOIDEditor::syncAllParamsToJS()
 {
     for (auto& [jsId, paramId] : PARAM_MAP)
     {
         auto* param = processor.apvts.getParameter (jsId);
         if (param == nullptr) continue;
-        const float norm = param->getValue();
         sendToJS ("window.setParamFromHost && window.setParamFromHost('"
-                  + paramId + "'," + juce::String (norm, 4) + ")");
+                  + paramId + "'," + juce::String (param->getValue(), 4) + ")");
     }
 
     const int algoIdx = processor.currentAlgo.load();
@@ -84,7 +75,6 @@ void VOIDEditor::syncAllParamsToJS()
               + juce::String (processor.bypassed.load() ? "true" : "false") + ")");
 }
 
-// ── Handle juce:// commands from JS ──────────────────────────
 bool VOIDEditor::handleURL (const juce::String& url)
 {
     auto after = [&](const juce::String& key) {
@@ -100,19 +90,14 @@ bool VOIDEditor::handleURL (const juce::String& url)
             param->setValueNotifyingHost (val);
     }
     else if (url.startsWith ("juce://bypass"))
-    {
-        const bool v = after ("v=").getIntValue() != 0;
-        processor.bypassed.store (v);
-    }
+        processor.bypassed.store (after ("v=").getIntValue() != 0);
     else if (url.startsWith ("juce://algo"))
     {
         const int idx = ALGO_NAMES.indexOf (after ("v="));
         if (idx >= 0) processor.currentAlgo.store (idx);
     }
     else if (url.startsWith ("juce://frozen"))
-    {
         processor.frozen.store (after ("v=").getIntValue() != 0);
-    }
 
     return false;
 }
