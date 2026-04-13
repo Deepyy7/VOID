@@ -2,6 +2,13 @@
 
 static const juce::StringArray ALGO_NAMES { "plate", "hall", "superhall", "infinite" };
 
+static const std::vector<std::pair<juce::String,juce::String>> PARAM_MAP {
+    {"pdly","predelay"}, {"diff","diffusion"}, {"size","size"},
+    {"mdp","moddepth"},  {"mdr","modrate"},    {"atk","attack"},
+    {"hcut","highcut"},  {"hmlt","highmult"},  {"hxov","highxover"},
+    {"lcut","lowcut"},   {"lmlt","lowmult"},   {"mix","mix"}, {"dcy","decay"},
+};
+
 bool VOIDEditor::VoidWebView::pageAboutToLoad (const juce::String& url)
 {
     if (url.startsWith ("juce://"))
@@ -12,19 +19,42 @@ bool VOIDEditor::VoidWebView::pageAboutToLoad (const juce::String& url)
     return true;
 }
 
+static juce::String buildStateHash (VOIDProcessor& p)
+{
+    juce::String h = "#state=";
+    h += "algo:" + juce::String (p.currentAlgo.load()) + ";";
+    h += "frozen:" + juce::String ((int)p.frozen.load()) + ";";
+    for (auto& [jsId, paramId] : PARAM_MAP)
+    {
+        if (auto* param = p.apvts.getParameter (jsId))
+            h += jsId + ":" + juce::String (param->getValue(), 5) + ";";
+    }
+    return h;
+}
+
 VOIDEditor::VOIDEditor (VOIDProcessor& p)
     : AudioProcessorEditor (p), processor (p)
 {
     addAndMakeVisible (webView);
     setSize (1060, 600);
     setResizable (false, false);
+    loadPage();
+}
 
+void VOIDEditor::loadPage()
+{
     htmlTempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                       .getChildFile ("VOID_ui_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".html");
+                       .getChildFile ("VOID_ui_"
+                           + juce::String (juce::Random::getSystemRandom().nextInt())
+                           + ".html");
 
     if (htmlTempFile.replaceWithData (BinaryData::void_final_html,
                                       (size_t) BinaryData::void_final_htmlSize))
-        webView.goToURL ("file://" + htmlTempFile.getFullPathName());
+    {
+        juce::String url = "file://" + htmlTempFile.getFullPathName()
+                           + buildStateHash (processor);
+        webView.goToURL (url);
+    }
 }
 
 VOIDEditor::~VOIDEditor() { htmlTempFile.deleteFile(); }
@@ -37,6 +67,7 @@ bool VOIDEditor::handleURL (const juce::String& url)
         return url.fromFirstOccurrenceOf (key, false, false)
                   .upToFirstOccurrenceOf ("&", false, false);
     };
+
     if (url.startsWith ("juce://param"))
     {
         if (auto* p = processor.apvts.getParameter (after ("id=")))
@@ -51,5 +82,6 @@ bool VOIDEditor::handleURL (const juce::String& url)
     }
     else if (url.startsWith ("juce://frozen"))
         processor.frozen.store (after ("v=").getIntValue() != 0);
+
     return false;
 }
