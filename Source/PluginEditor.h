@@ -23,8 +23,5 @@ private:
     VoidWebView webView { *this };
     juce::File  htmlTempFile;
 
-    void syncAllParamsToJS();
-    void sendToJS (const juce::String& js);
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VOIDEditor)
 };
