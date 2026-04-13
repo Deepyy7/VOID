@@ -39,7 +39,8 @@ void VOIDProcessor::releaseResources() {}
 float VOIDProcessor::getMixNorm() const { return apvts.getRawParameterValue(ID_MIX)->load()/100.0f; }
 
 void VOIDProcessor::loadIR(const juce::String& b64,int irSR,int irLen) {
-    auto decoded=juce::Base64::toMemoryBlock(b64);
+    juce::MemoryBlock decoded;
+    { juce::MemoryOutputStream mos(decoded,false); juce::Base64::convertFromBase64(mos,b64); }
     if(decoded.getSize()<(size_t)(irLen*2*2))return;
     const int16_t* raw=(const int16_t*)decoded.getData();
     juce::AudioBuffer<float> irBuf(2,irLen);
