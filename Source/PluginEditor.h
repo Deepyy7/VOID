@@ -8,6 +8,7 @@ public:
     explicit VOIDEditor (VOIDProcessor&);
     ~VOIDEditor() override;
     void resized() override;
+    void loadPage();
     bool handleURL (const juce::String& url);
 
 private:
