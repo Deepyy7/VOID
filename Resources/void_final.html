@@ -414,8 +414,6 @@ html,body{width:1060px;height:600px;overflow:hidden;background:#07071a}
     <div class="fl"><div class="bdt"></div><span class="ftx">Gravitas Audio</span><div class="ftr"></div><span class="fbadge">VOID v1.0</span></div>
     <div class="fc"><span class="fsig">By Adi Perez</span></div>
     <div class="fr">
-      <button class="fbtn" id="loadBtn">▶ Load Audio</button>
-      <input type="file" id="audioFile" accept="audio/*" style="display:none">
       <div class="ftr"></div>
       <button class="bypbtn" id="bypBtn">Bypass</button>
     </div>
@@ -485,7 +483,7 @@ const DOM = {
   knobs: {}, vals: {}, // populated in makeKnob
   vizCanvas: null, decCanvas: null,
   decN: null, decRing: null, decRO: null, tailFill: null,
-  frzBtn: null, bypBtn: null, loadBtn: null, audioFile: null,
+  frzBtn: null, bypBtn: null,
   plugin: null, colC: null, vizBox: null,
   tooltip: null, ttVal: null, ttLbl: null,
 };
@@ -499,8 +497,6 @@ function cacheDOM() {
   DOM.tailFill   = document.getElementById('tailFill');
   DOM.frzBtn     = document.getElementById('frzBtn');
   DOM.bypBtn     = document.getElementById('bypBtn');
-  DOM.loadBtn    = document.getElementById('loadBtn');
-  DOM.audioFile  = document.getElementById('audioFile');
   DOM.plugin     = document.querySelector('.p');
   DOM.colC       = document.querySelector('.col-c');
   DOM.vizBox     = document.querySelector('.viz-box');
@@ -1092,8 +1088,6 @@ function buildControls() {
     try { _jb.src = `juce://bypass?v=${bypassed ? 1 : 0}`; } catch(e) {}
   });
 
-  DOM.loadBtn.addEventListener('click', () => DOM.audioFile.click());
-  DOM.audioFile.addEventListener('change', loadAudioFile);
 }
 
 function renderLoop() {
@@ -1483,31 +1477,6 @@ function applyAudioMix() {
   loF.frequency.setTargetAtTime(P.lowcut.value,  t, 0.02);
 }
 
-async function loadAudioFile(e) {
-  const f = e.target.files[0]; if (!f) return;
-  initAudio();
-  if (actx.state === 'suspended') await actx.resume();
-  DOM.loadBtn.textContent = '⟳ Loading...';
-  try {
-    const ab   = await f.arrayBuffer();
-    const abuf = await actx.decodeAudioData(ab);
-    if (src) {
-      try { src.stop(); }       catch(_) {}
-      try { src.disconnect(); } catch(_) {}
-      src = null;
-    }
-    src = actx.createBufferSource();
-    src.buffer = abuf; src.loop = true;
-    connectGraph(); src.start();
-    applyAudioMix();
-    DOM.loadBtn.textContent = '◼ ' + (f.name.length > 12 ? f.name.slice(0,12)+'…' : f.name);
-    DOM.loadBtn.classList.add('on');
-  } catch(err) {
-    DOM.loadBtn.textContent = '▶ Load Audio';
-    console.warn('Audio decode failed:', err);
-  }
-}
-
 document.addEventListener('visibilitychange', () => {
   if (!actx || document.hidden) return;
   if (actx.state === 'suspended') actx.resume().catch(() => {});
@@ -1668,6 +1637,17 @@ buildControls();
 buildPresetControls();
 updateAlgoAura(algo);
 requestAnimationFrame(() => { sizeViz(); requestAnimationFrame(renderLoop); });
+
+// Auto-init: start AudioContext and send IR to C++ immediately
+// (in JUCE WebView there is no autoplay restriction)
+initAudio();
+// If suspended (first load before any gesture), resume on first click
+if (actx && actx.state === 'suspended') {
+  document.addEventListener('click', function _resume() {
+    actx.resume().catch(() => {});
+    document.removeEventListener('click', _resume);
+  }, { once: true });
+}
 </script>
 </body>
 </html>
