@@ -32,13 +32,15 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Collect artifacts
+      - name: Sign and collect artifacts
         run: |
           mkdir -p artifacts
-          # VST3
-          find build -name "*.vst3" -type d | head -1 | xargs -I{} cp -r {} artifacts/
-          # AU
-          find build -name "*.component" -type d | head -1 | xargs -I{} cp -r {} artifacts/
+          VST3=$(find build -name "*.vst3" -type d | head -1)
+          if [ -n "$VST3" ]; then
+            cp -r "$VST3" artifacts/
+            codesign --force --deep --sign - artifacts/*.vst3
+            xattr -cr artifacts/*.vst3
+          fi
           ls -la artifacts/
 
       - name: Upload VST3
@@ -46,9 +48,3 @@ jobs:
         with:
           name: VOID-VST3-macOS
           path: artifacts/*.vst3
-
-      - name: Upload AU
-        uses: actions/upload-artifact@v4
-        with:
-          name: VOID-AU-macOS
-          path: artifacts/*.component
